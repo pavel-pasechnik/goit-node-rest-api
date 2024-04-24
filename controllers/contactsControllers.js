@@ -34,7 +34,7 @@ export const deleteContact = async (req, res) => {
 export const createContact = async (req, res) => {
   const contact = req.body;
   const { error, value } = createContactSchema.validate(contact);
-  console.log(value);
+
   if (!error) {
     const addContact = await contactsService.addContact(value);
     return res.status(201).send(addContact);
