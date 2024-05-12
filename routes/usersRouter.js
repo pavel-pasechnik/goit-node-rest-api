@@ -22,8 +22,8 @@ usersRouter.post('/logout', authMiddleware, logoutUser);
 usersRouter.get('/current', authMiddleware, currentUser);
 usersRouter.patch(
   '/',
-  validateBody(updateUserSubscriptionSchema),
   authMiddleware,
+  validateBody(updateUserSubscriptionSchema),
   subscriptionUpdate
 );
 
