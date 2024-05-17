@@ -16,20 +16,21 @@ import authMiddleware from '../middleware/auth.js';
 
 const contactsRouter = express.Router();
 
-contactsRouter.get('/', authMiddleware, getAllContacts);
+contactsRouter.use(authMiddleware);
 
-contactsRouter.get('/:contactId', authMiddleware, getOneContact);
+contactsRouter.get('/', getAllContacts);
 
-contactsRouter.delete('/:contactId', authMiddleware, deleteContact);
+contactsRouter.get('/:contactId', getOneContact);
 
-contactsRouter.post('/', authMiddleware, validateBody(createContactSchema), createContact);
+contactsRouter.delete('/:contactId', deleteContact);
 
-contactsRouter.put('/:contactId', authMiddleware, validateBody(updateContactSchema), updateContact);
+contactsRouter.post('/', validateBody(createContactSchema), createContact);
+
+contactsRouter.put('/:contactId', validateBody(updateContactSchema), updateContact);
 
 contactsRouter.patch(
   '/:contactId/favorite',
   validateBody(updateStatusContactSchema),
-  authMiddleware,
   updateContact
 );
 

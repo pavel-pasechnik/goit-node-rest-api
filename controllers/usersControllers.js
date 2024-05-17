@@ -5,9 +5,8 @@ import HttpError from '../helpers/HttpError.js';
 import User from '../models/user.js';
 
 export const createUser = async (req, res, next) => {
-  const { email, password } = req.body;
-
   try {
+    const { email, password } = req.body;
     const user = await User.findOne({ email });
 
     if (user !== null) {
@@ -18,7 +17,7 @@ export const createUser = async (req, res, next) => {
 
     const addUser = await User.create({ email, password: passwordHash });
 
-    res.status(201).send({
+    res.status(201).json({
       user: {
         email: addUser.email,
         subscription: addUser.subscription,
@@ -30,9 +29,8 @@ export const createUser = async (req, res, next) => {
 };
 
 export const loginUser = async (req, res, next) => {
-  const { email, password } = req.body;
-
   try {
+    const { email, password } = req.body;
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -46,9 +44,9 @@ export const loginUser = async (req, res, next) => {
     }
 
     const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET);
-    const addUserToken = await User.findByIdAndUpdate(user.id, { token }, { new: true });
+    const addUserToken = await User.findByIdAndUpdate(user._id, { token }, { new: true });
 
-    res.status(200).send({
+    res.status(200).json({
       token: addUserToken.token,
       user: {
         email: addUserToken.email,
@@ -62,7 +60,7 @@ export const loginUser = async (req, res, next) => {
 
 export const logoutUser = async (req, res, next) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, { token: null });
+    await User.findByIdAndUpdate(req.user._id, { token: null });
     res.status(204).end();
   } catch (error) {
     next(error);
@@ -71,10 +69,9 @@ export const logoutUser = async (req, res, next) => {
 
 export const currentUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
-    res.status(200).send({
-      email: user.email,
-      subscription: user.subscription,
+    res.status(200).json({
+      email: req.user.email,
+      subscription: req.user.subscription,
     });
   } catch (error) {
     next(error);
@@ -83,11 +80,11 @@ export const currentUser = async (req, res, next) => {
 
 export const subscriptionUpdate = async (req, res, next) => {
   try {
-    const updatedUser = await User.findByIdAndUpdate(req.user.id, req.body, {
+    const updatedUser = await User.findByIdAndUpdate(req.user._id, req.body, {
       new: true,
     });
 
-    res.status(200).send({
+    res.status(200).json({
       email: updatedUser.email,
       subscription: updatedUser.subscription,
     });
