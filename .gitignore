@@ -19,6 +19,8 @@ dist-ssr
 
 # testing
 /coverage
+/public/avatars/*
+!/public/avatars/.gitkeep
 
 # production
 /build
@@ -44,3 +46,4 @@ dist-ssr
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
