@@ -1,3 +1,4 @@
+import { v4 as uuId } from 'uuid';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import HttpError from '../helpers/HttpError.js';
@@ -5,6 +6,7 @@ import gravatar from 'gravatar';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import Jimp from 'jimp';
+import sendMail from '../mail.js';
 
 import User from '../models/user.js';
 
@@ -13,15 +15,27 @@ export const createUser = async (req, res, next) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    if (user !== null) {
-      throw HttpError(409, 'Email in use');
-    }
+    if (user !== null) throw HttpError(409, 'Email in use');
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const verifyToken = uuId();
 
-    const avatarUrl = gravatar.profile_url(email, { protocol: 'http', format: 'png' });
+    const avatarUrl = gravatar.url(email, { protocol: 'http', size: '250' });
 
-    const addUser = await User.create({ email, password: passwordHash, avatarURL: avatarUrl });
+    const addUser = await User.create({
+      email,
+      password: passwordHash,
+      avatarURL: avatarUrl,
+      verificationToken: verifyToken,
+    });
+
+    sendMail({
+      to: email,
+      from: process.env.MAIL_SENDER,
+      subject: 'Welcome to Contacts Book!',
+      html: `To confirm your email please click on the <a href="http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}">link</a>`,
+      text: `To confirm your email please open the link http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}`,
+    });
 
     res.status(201).json({
       user: {
@@ -39,15 +53,13 @@ export const loginUser = async (req, res, next) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    if (!user) {
-      throw HttpError(401, 'Email or password is wrong');
-    }
+    if (!user) throw HttpError(401, 'Email or password is wrong');
 
     const isMatch = await bcrypt.compare(password, user.password);
 
-    if (!isMatch) {
-      throw HttpError(401, 'Email or password is wrong');
-    }
+    if (!isMatch) throw HttpError(401, 'Email or password is wrong');
+
+    if (user.verify === false) res.status(401).send({ message: 'Please verify your email' });
 
     const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET);
     const addUserToken = await User.findByIdAndUpdate(user._id, { token }, { new: true });
@@ -78,6 +90,7 @@ export const currentUser = async (req, res, next) => {
     res.status(200).json({
       email: req.user.email,
       subscription: req.user.subscription,
+      avatarURL: req.user.avatarURL,
     });
   } catch (error) {
     next(error);
@@ -121,6 +134,55 @@ export const updateAvatar = async (req, res, next) => {
     );
 
     res.status(200).json({ avatarURL: user.avatarURL });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyUser = async (req, res, next) => {
+  try {
+    const { verificationToken } = req.params;
+
+    const user = await User.findOneAndUpdate(
+      { verificationToken },
+      { verify: true, verificationToken: null },
+      { new: true }
+    );
+
+    if (user === null) throw HttpError(404, 'User not found');
+
+    res.status(200).json({ message: 'Verification successful' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyCheck = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const verifyToken = uuId();
+
+    if (!email) throw HttpError(400, 'missing required field email');
+
+    const user = await User.findOneAndUpdate(
+      { email, verify: false },
+      { verificationToken: verifyToken },
+      { new: true }
+    );
+
+    if (user) {
+      await sendMail({
+        to: email,
+        from: process.env.EMAIL_SENDER,
+        subject: 'Welcome to Contacts Book!',
+        html: `To confirm your email please click on the <a href="http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}">link</a>`,
+        text: `To confirm your email please open the link http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}`,
+      });
+
+      return res.status(200).json({ message: 'Verification email sent' });
+    }
+
+    throw HttpError(400, 'Verification has already been passed');
   } catch (error) {
     next(error);
   }
