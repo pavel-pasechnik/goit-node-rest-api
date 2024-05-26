@@ -31,7 +31,7 @@ export const createUser = async (req, res, next) => {
 
     sendMail({
       to: email,
-      from: process.env.MAIL_SENDER,
+      from: process.env.EMAIL_SENDER,
       subject: 'Welcome to Contacts Book!',
       html: `To confirm your email please click on the <a href="http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}">link</a>`,
       text: `To confirm your email please open the link http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}`,
