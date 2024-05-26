@@ -36,7 +36,8 @@ export const updateUserSubscriptionSchema = Joi.object({
 });
 
 export const verifyCheckSchema = Joi.object({
-  email: Joi.string().email().lowercase().trim(),
-}).error(errors => {
-  return new Error('Помилка від Joi або іншої бібліотеки валідації');
+  email: Joi.string().email().lowercase().trim().required().messages({
+    'any.required': 'missing required field email',
+    'string.email': 'Помилка від Joi або іншої бібліотеки валідації',
+  }),
 });

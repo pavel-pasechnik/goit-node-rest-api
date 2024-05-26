@@ -6,7 +6,7 @@ import gravatar from 'gravatar';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import Jimp from 'jimp';
-import sendMail from '../mail.js';
+import sendMail from '../helpers/mail.js';
 
 import User from '../models/user.js';
 
@@ -29,13 +29,7 @@ export const createUser = async (req, res, next) => {
       verificationToken: verifyToken,
     });
 
-    sendMail({
-      to: email,
-      from: process.env.EMAIL_SENDER,
-      subject: 'Welcome to Contacts Book!',
-      html: `To confirm your email please click on the <a href="http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}">link</a>`,
-      text: `To confirm your email please open the link http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}`,
-    });
+    await sendMail(email, verifyToken);
 
     res.status(201).json({
       user: {
@@ -59,7 +53,7 @@ export const loginUser = async (req, res, next) => {
 
     if (!isMatch) throw HttpError(401, 'Email or password is wrong');
 
-    if (user.verify === false) res.status(401).send({ message: 'Please verify your email' });
+    if (!user.verify) res.status(401).send({ message: 'Please verify your email' });
 
     const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET);
     const addUserToken = await User.findByIdAndUpdate(user._id, { token }, { new: true });
@@ -149,7 +143,7 @@ export const verifyUser = async (req, res, next) => {
       { new: true }
     );
 
-    if (user === null) throw HttpError(404, 'User not found');
+    if (!user) throw HttpError(404, 'User not found');
 
     res.status(200).json({ message: 'Verification successful' });
   } catch (error) {
@@ -162,27 +156,19 @@ export const verifyCheck = async (req, res, next) => {
     const { email } = req.body;
     const verifyToken = uuId();
 
-    if (!email) throw HttpError(400, 'missing required field email');
-
     const user = await User.findOneAndUpdate(
       { email, verify: false },
       { verificationToken: verifyToken },
       { new: true }
     );
 
-    if (user) {
-      await sendMail({
-        to: email,
-        from: process.env.EMAIL_SENDER,
-        subject: 'Welcome to Contacts Book!',
-        html: `To confirm your email please click on the <a href="http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}">link</a>`,
-        text: `To confirm your email please open the link http://localhost:${process.env.PORT}/api/users/verify/${verifyToken}`,
-      });
-
-      return res.status(200).json({ message: 'Verification email sent' });
+    if (!user) {
+      throw HttpError(400, 'Verification has already been passed');
     }
 
-    throw HttpError(400, 'Verification has already been passed');
+    await sendMail(email, verifyToken);
+
+    res.status(200).json({ message: 'Verification email sent' });
   } catch (error) {
     next(error);
   }
